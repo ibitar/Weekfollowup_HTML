@@ -106,6 +106,9 @@ def generate_suivi_html(
   th {{ background:#e6e6e6; font-size:14px; text-align:left; }}
   td {{ font-size:12px; text-align:left; white-space: pre-wrap; }}
   .en-conge {{ color:#a00; font-style: italic; margin: 6px 0 16px 0; }}
+  .prio-haute {{ background-color:#ffdddd; }}
+  .prio-basse {{ background-color:#ddffdd; }}
+  .etat-non-demarree {{ background-color:#ffffcc; }}
 </style>
 <script>
 $(document).ready(function() {{
@@ -173,7 +176,15 @@ $(document).ready(function() {{
         html_output += "</tr></thead><tbody>\n"
 
         for _, row in grp.iterrows():
-            html_output += "<tr>"
+            classes = []
+            if row["__prio_num"] <= 2:
+                classes.append("prio-haute")
+            elif row["__prio_num"] >= 8:
+                classes.append("prio-basse")
+            if row["Etat"] == "Non démarrée":
+                classes.append("etat-non-demarree")
+            row_class = " ".join(classes)
+            html_output += f"<tr class='{row_class}'>" if row_class else "<tr>"
             for col in colonnes:
                 if col == nom_col_priorite_affiche:
                     val = int(row["__prio_num"])
