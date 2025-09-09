@@ -1,6 +1,7 @@
 import os
 from datetime import date
 import re
+import html
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
 
@@ -14,7 +15,9 @@ def generate_suivi_html(
     tri_priorite_ascendant: bool = True,
     page_length: int = 25,
     trier_autres_alpha: bool = False,
-    nom_col_priorite_affiche: str = "Priorité"
+    nom_col_priorite_affiche: str = "Priorité",
+    skiprows: int = 10,
+    etats_conserves=None,
 ) -> str:
     """
     Génère un HTML unique listant les actions par ingénieur.
@@ -24,7 +27,9 @@ def generate_suivi_html(
     - `tri_priorite_ascendant`: True => 1->10 ; False => 10->1
     - `page_length`: nombre de lignes affichées par page (DataTables).
     - `nom_col_priorite_affiche`: nom de la colonne "Priorité" à afficher dans le tableau (si votre Excel varie).
-    
+    - `skiprows`: nombre de lignes ignorées au début de la feuille Excel.
+    - `etats_conserves`: liste des états conservés dans la colonne "Etat".
+
     Retourne le chemin du fichier HTML généré.
     """
     if ordre_voulu is None:
@@ -50,8 +55,10 @@ def generate_suivi_html(
     os.makedirs(os.path.dirname(sortie_html) or ".", exist_ok=True)
 
     # --- Lecture & préparation ---
-    df = pd.read_excel(fichier_excel, sheet_name=nom_feuille, skiprows=10)
-    df = df[df["Etat"].isin(["En cours", "Non démarrée"])].copy()
+    if etats_conserves is None:
+        etats_conserves = ["En cours", "Non démarrée"]
+    df = pd.read_excel(fichier_excel, sheet_name=nom_feuille, skiprows=skiprows)
+    df = df[df["Etat"].isin(etats_conserves)].copy()
     df = df.fillna("")
 
     # colonne de priorité (numérique) pour tri
@@ -69,6 +76,7 @@ def generate_suivi_html(
 
     # --- Préparation des données pour le template ---
     order_dir = 'asc' if tri_priorite_ascendant else 'desc'
+
     ICON = {"Machine": "⚙️", "Humain": "👤", "Deux": "🤝"}
     sections = []
     for resp in ingenieurs:
@@ -76,6 +84,7 @@ def generate_suivi_html(
         if resp in ingenieurs_en_conge:
             section["conge"] = True
             sections.append(section)
+
             continue
         grp = df[df["Prise en charge par"] == resp].copy()
         if grp.empty:
@@ -110,8 +119,9 @@ def generate_suivi_html(
         order_dir=order_dir,
     )
 
+
     with open(sortie_html, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(html_output)
 
     return sortie_html
 # ======================
@@ -137,6 +147,8 @@ if __name__ == "__main__":
         tri_priorite_ascendant=True,   # 1 -> 10
         page_length=25,
         trier_autres_alpha=False,      # mets True si tu veux les autres triés A→Z
-        nom_col_priorite_affiche="Priorité"
+        nom_col_priorite_affiche="Priorité",
+        skiprows=10,
+        etats_conserves=["En cours", "Non démarrée"],
     )
     print(f"✅ Fichier généré : {path}")
