@@ -1,6 +1,7 @@
 import os
 from datetime import date
 import re
+import html
 import pandas as pd
 
 def generate_suivi_html(
@@ -68,7 +69,7 @@ def generate_suivi_html(
 
     # --- HTML head ---
     order_dir = 'asc' if tri_priorite_ascendant else 'desc'
-    html = f"""<!DOCTYPE html>
+    html_output = f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
@@ -127,9 +128,9 @@ $(document).ready(function() {{
     # --- Sommaire
     for nom in ingenieurs:
         anchor = nom.replace(" ", "_")
-        html += f"    <li><a href='#{anchor}'>{nom}</a></li>\n"
+        html_output += f"    <li><a href='#{anchor}'>{nom}</a></li>\n"
 
-    html += """  </ul>
+    html_output += """  </ul>
 </nav>
 
 <p><strong>Conventions de lecture du tableau :</strong></p>
@@ -143,30 +144,30 @@ $(document).ready(function() {{
     # --- Sections par ingénieur
     for resp in ingenieurs:
         # Section header
-        html += "<hr style='margin:40px 0; border:none; border-top:1px solid #ccc;'/>\n"
-        html += f"<h2 id='{resp.replace(' ','_')}'>Actions de {resp}</h2>\n"
+        html_output += "<hr style='margin:40px 0; border:none; border-top:1px solid #ccc;'/>\n"
+        html_output += f"<h2 id='{resp.replace(' ','_')}'>Actions de {resp}</h2>\n"
 
         # Si l'ingénieur est en congé -> note et on passe à la suite
         if resp in ingenieurs_en_conge:
-            html += "<p class='en-conge'>En congé — pas d'actions listées pour cette période.</p>\n"
+            html_output += "<p class='en-conge'>En congé — pas d'actions listées pour cette période.</p>\n"
             continue
 
         grp = df[df["Prise en charge par"] == resp].copy()
         if grp.empty:
-            html += "<p class='en-conge'>Aucune action à afficher.</p>\n"
+            html_output += "<p class='en-conge'>Aucune action à afficher.</p>\n"
             continue
 
         # Tri Python (complémentaire au tri DataTables côté client)
         grp = grp.sort_values("__prio_num", ascending=tri_priorite_ascendant)
 
         # Construction du tableau
-        html += "<table class='display'><thead><tr>\n"
+        html_output += "<table class='display'><thead><tr>\n"
         for col in colonnes:
-            html += f"  <th>{col}</th>\n"
-        html += "</tr></thead><tbody>\n"
+            html_output += f"  <th>{col}</th>\n"
+        html_output += "</tr></thead><tbody>\n"
 
         for _, row in grp.iterrows():
-            html += "<tr>"
+            html_output += "<tr>"
             for col in colonnes:
                 if col == nom_col_priorite_affiche:
                     val = int(row["__prio_num"])
@@ -174,16 +175,17 @@ $(document).ready(function() {{
                     val = f"{ICON.get(row[col],'')} {row[col]}"
                 else:
                     val = row[col]
-                html += f"<td>{val}</td>"
-            html += "</tr>\n"
+                val = html.escape(str(val))
+                html_output += f"<td>{val}</td>"
+            html_output += "</tr>\n"
 
-        html += "</tbody></table>\n"
+        html_output += "</tbody></table>\n"
 
-    html += "</body>\n</html>"
+    html_output += "</body>\n</html>"
 
     # --- Écriture du fichier
     with open(sortie_html, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(html_output)
 
     return sortie_html
 
