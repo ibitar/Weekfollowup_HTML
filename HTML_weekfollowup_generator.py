@@ -109,6 +109,7 @@ def generate_suivi_html(
   .prio-haute {{ background-color:#ffdddd; }}
   .prio-basse {{ background-color:#ddffdd; }}
   .etat-non-demarree {{ background-color:#ffffcc; }}
+  summary {{ cursor: pointer; margin: 6px 0; }}
 </style>
 <script>
 $(document).ready(function() {{
@@ -155,48 +156,48 @@ $(document).ready(function() {{
         # Section header
         html_output += "<hr style='margin:40px 0; border:none; border-top:1px solid #ccc;'/>\n"
         html_output += f"<h2 id='{resp.replace(' ','_')}'>Actions de {resp}</h2>\n"
+        html_output += f"<details>\n<summary>{resp}</summary>\n"
 
         # Si l'ingénieur est en congé -> note et on passe à la suite
         if resp in ingenieurs_en_conge:
             html_output += "<p class='en-conge'>En congé — pas d'actions listées pour cette période.</p>\n"
-            continue
+        else:
+            grp = df[df["Prise en charge par"] == resp].copy()
+            if grp.empty:
+                html_output += "<p class='en-conge'>Aucune action à afficher.</p>\n"
+            else:
+                # Tri Python (complémentaire au tri DataTables côté client)
+                grp = grp.sort_values("__prio_num", ascending=tri_priorite_ascendant)
 
-        grp = df[df["Prise en charge par"] == resp].copy()
-        if grp.empty:
-            html_output += "<p class='en-conge'>Aucune action à afficher.</p>\n"
-            continue
+                # Construction du tableau
+                html_output += "<table class='display'><thead><tr>\n"
+                for col in colonnes:
+                    html_output += f"  <th>{col}</th>\n"
+                html_output += "</tr></thead><tbody>\n"
 
-        # Tri Python (complémentaire au tri DataTables côté client)
-        grp = grp.sort_values("__prio_num", ascending=tri_priorite_ascendant)
+                for _, row in grp.iterrows():
+                    classes = []
+                    if row["__prio_num"] <= 2:
+                        classes.append("prio-haute")
+                    elif row["__prio_num"] >= 8:
+                        classes.append("prio-basse")
+                    if row["Etat"] == "Non démarrée":
+                        classes.append("etat-non-demarree")
+                    row_class = " ".join(classes)
+                    html_output += f"<tr class='{row_class}'>" if row_class else "<tr>"
+                    for col in colonnes:
+                        if col == nom_col_priorite_affiche:
+                            val = int(row["__prio_num"])
+                        elif col == "Type (Machine/Humain/Deux)":
+                            val = f"{ICON.get(row[col],'')} {row[col]}"
+                        else:
+                            val = row[col]
+                        val = html.escape(str(val))
+                        html_output += f"<td>{val}</td>"
+                    html_output += "</tr>\n"
 
-        # Construction du tableau
-        html_output += "<table class='display'><thead><tr>\n"
-        for col in colonnes:
-            html_output += f"  <th>{col}</th>\n"
-        html_output += "</tr></thead><tbody>\n"
-
-        for _, row in grp.iterrows():
-            classes = []
-            if row["__prio_num"] <= 2:
-                classes.append("prio-haute")
-            elif row["__prio_num"] >= 8:
-                classes.append("prio-basse")
-            if row["Etat"] == "Non démarrée":
-                classes.append("etat-non-demarree")
-            row_class = " ".join(classes)
-            html_output += f"<tr class='{row_class}'>" if row_class else "<tr>"
-            for col in colonnes:
-                if col == nom_col_priorite_affiche:
-                    val = int(row["__prio_num"])
-                elif col == "Type (Machine/Humain/Deux)":
-                    val = f"{ICON.get(row[col],'')} {row[col]}"
-                else:
-                    val = row[col]
-                val = html.escape(str(val))
-                html_output += f"<td>{val}</td>"
-            html_output += "</tr>\n"
-
-        html_output += "</tbody></table>\n"
+                html_output += "</tbody></table>\n"
+        html_output += "</details>\n"
 
     html_output += "</body>\n</html>"
 
